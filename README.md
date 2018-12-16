@@ -39,7 +39,7 @@ representation.
 
 - The above model was trainedusing **Inception Network** it can also be trained using other pretrained network architectures e.g. **NASNet-A** (https://tfhub.dev/google/imagenet/nasnet_large/feature_vector/1)
 
-##### References
+#### References
 
    https://www.tensorflow.org/hub/tutorials/image_retraining
 
