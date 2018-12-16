@@ -29,7 +29,14 @@ representation.
 
 - Alredy trained model present in ```./tmp/inception_v3/``` directory can be used for testing on new images. Execute the below command.
 
-  ```python ./scripts/label_image.py --graph=./tmp/inception_v3/output_graph.pb --labels=./tmp/inception_v3/output_labels.txt --input_layer=Placeholder --output_layer=final_result --image={Path of the Image file}```
+  ```bash
+  python ./scripts/label_image.py \
+  --graph=./tmp/inception_v3/output_graph.pb \
+  --labels=./tmp/inception_v3/output_labels.txt \
+  --input_layer=Placeholder \
+  --output_layer=final_result \
+  --image={Path of the Image file}
+  ```
   
   The above trained model gave accuracy of **85.7%** with following hyperparameters:
   
