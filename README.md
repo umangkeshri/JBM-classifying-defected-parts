@@ -51,6 +51,8 @@ representation.
    https://www.tensorflow.org/hub/tutorials/image_retraining
 
    https://ai.googleblog.com/2017/11/automl-for-large-scale-image.html
+   
+   https://codelabs.developers.google.com/codelabs/tensorflow-for-poets/#3
 
    https://arxiv.org/abs/1310.1531
 
