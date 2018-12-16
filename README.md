@@ -46,3 +46,5 @@ https://ai.googleblog.com/2017/11/automl-for-large-scale-image.html
 https://arxiv.org/abs/1310.1531
 
 https://towardsdatascience.com/tensorflow-on-mobile-tutorial-1-744703297267
+
+- The above model was trainedusing **Inception Network** it can also be trained using other pretrained network architectures e.g. **NASNet-A** (https://tfhub.dev/google/imagenet/nasnet_large/feature_vector/1)
