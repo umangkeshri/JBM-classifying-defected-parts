@@ -1,119 +1,4 @@
-# Copyright 2015 The TensorFlow Authors. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-# ==============================================================================
-# NOTICE: This work was derived from tensorflow/examples/image_retraining
-# and modified to use TensorFlow Hub modules.
-
-# pylint: disable=line-too-long
-r"""Simple transfer learning with image modules from TensorFlow Hub.
-
-This example shows how to train an image classifier based on any
-TensorFlow Hub module that computes image feature vectors. By default,
-it uses the feature vectors computed by Inception V3 trained on ImageNet.
-See https://github.com/tensorflow/hub/blob/master/docs/modules/image.md
-for more options.
-
-The top layer receives as input a 2048-dimensional vector (assuming
-Inception V3) for each image. We train a softmax layer on top of this
-representation. If the softmax layer contains N labels, this corresponds
-to learning N + 2048*N model parameters for the biases and weights.
-
-Here's an example, which assumes you have a folder containing class-named
-subfolders, each full of images for each label. The example folder flower_photos
-should have a structure like this:
-
-~/flower_photos/daisy/photo1.jpg
-~/flower_photos/daisy/photo2.jpg
-...
-~/flower_photos/rose/anotherphoto77.jpg
-...
-~/flower_photos/sunflower/somepicture.jpg
-
-The subfolder names are important, since they define what label is applied to
-each image, but the filenames themselves don't matter. (For a working example,
-download http://download.tensorflow.org/example_images/flower_photos.tgz
-and run  tar xzf flower_photos.tgz  to unpack it.)
-
-Once your images are prepared, and you have pip-installed tensorflow-hub and
-a sufficiently recent version of tensorflow, you can run the training with a
-command like this:
-
-```bash
-python retrain.py --image_dir ~/flower_photos
-```
-
-You can replace the image_dir argument with any folder containing subfolders of
-images. The label for each image is taken from the name of the subfolder it's
-in.
-
-This produces a new model file that can be loaded and run by any TensorFlow
-program, for example the tensorflow/examples/label_image sample code.
-
-By default this script will use the highly accurate, but comparatively large and
-slow Inception V3 model architecture. It's recommended that you start with this
-to validate that you have gathered good training data, but if you want to deploy
-on resource-limited platforms, you can try the `--tfhub_module` flag with a
-Mobilenet model. For more information on Mobilenet, see
-https://research.googleblog.com/2017/06/mobilenets-open-source-models-for.html
-
-For example:
-
-Run floating-point version of Mobilenet:
-
-```bash
-python retrain.py --image_dir ~/flower_photos \
-    --tfhub_module https://tfhub.dev/google/imagenet/mobilenet_v1_100_224/feature_vector/1
-```
-
-Run Mobilenet, instrumented for quantization:
-
-```bash
-python retrain.py --image_dir ~/flower_photos/ \
-    --tfhub_module https://tfhub.dev/google/imagenet/mobilenet_v1_100_224/quantops/feature_vector/1
-```
-
-These instrumented models can be converted to fully quantized mobile models via
-TensorFlow Lite.
-
-There are different Mobilenet models to choose from, with a variety of file
-size and latency options.
-  - The first number can be '100', '075', '050', or '025' to control the number
-    of neurons (activations of hidden layers); the number of weights (and hence
-    to some extent the file size and speed) shrinks with the square of that
-    fraction.
-  - The second number is the input image size. You can choose '224', '192',
-    '160', or '128', with smaller sizes giving faster speeds.
-
-To use with TensorBoard:
-
-By default, this script will log summaries to ./tmp/retrain_logs directory
-
-Visualize the summaries with this command:
-
-tensorboard --logdir ./tmp/retrain_logs
-
-To use with Tensorflow Serving, run this tool with --saved_model_dir set
-to some increasingly numbered export location under the model base path, e.g.:
-
-```bash
-python retrain.py (... other args as before ...) \
-    --saved_model_dir=./tmp/saved_models/$(date +%s)/
-tensorflow_model_server --port=9000 --model_name=my_image_classifier \
-    --model_base_path=./tmp/saved_models/
-```
-"""
-# pylint: enable=line-too-long
+"""Simple transfer learning with image modules from TensorFlow Hub."""
 
 from __future__ import absolute_import
 from __future__ import division
@@ -134,13 +19,8 @@ import tensorflow_hub as hub
 
 FLAGS = None
 
-MAX_NUM_IMAGES_PER_CLASS = 2 ** 27 - 1  # ~134M
-
-# The location where variable checkpoints will be stored.
+MAX_NUM_IMAGES_PER_CLASS = 2 ** 27 - 1  
 CHECKPOINT_NAME = './tmp/_retrain_checkpoint'
-
-# A module is understood as instrumented for quantization with TF-Lite
-# if it contains any of these ops.
 FAKE_QUANT_OPS = ('FakeQuantWithMinMaxVars',
                   'FakeQuantWithMinMaxVarsPerChannel')
 
@@ -167,13 +47,13 @@ def create_image_lists(image_dir, testing_percentage, validation_percentage):
     return None
   result = collections.OrderedDict()
   sub_dirs = sorted(x[0] for x in tf.gfile.Walk(image_dir))
-  # The root directory comes first, so skip it.
+
   is_root_dir = True
   for sub_dir in sub_dirs:
     if is_root_dir:
       is_root_dir = False
       continue
-    extensions = sorted(set(os.path.normcase(ext)  # Smash case on Windows.
+    extensions = sorted(set(os.path.normcase(ext)
                             for ext in ['JPEG', 'JPG', 'jpeg', 'jpg']))
     file_list = []
     dir_name = os.path.basename(sub_dir)
@@ -199,19 +79,7 @@ def create_image_lists(image_dir, testing_percentage, validation_percentage):
     validation_images = []
     for file_name in file_list:
       base_name = os.path.basename(file_name)
-      # We want to ignore anything after '_nohash_' in the file name when
-      # deciding which set to put an image in, the data set creator has a way of
-      # grouping photos that are close variations of each other. For example
-      # this is used in the plant disease data set to group multiple pictures of
-      # the same leaf.
       hash_name = re.sub(r'_nohash_.*$', '', file_name)
-      # This looks a bit magical, but we need to decide whether this file should
-      # go into the training, testing, or validation sets, and we want to keep
-      # existing files in the same set even if more files are subsequently
-      # added.
-      # To do that, we need a stable way of deciding based on just the file name
-      # itself, so we do a hash of that and then use that to generate a
-      # probability value that we use to assign it.
       hash_name_hashed = hashlib.sha1(tf.compat.as_bytes(hash_name)).hexdigest()
       percentage_hash = ((int(hash_name_hashed, 16) %
                           (MAX_NUM_IMAGES_PER_CLASS + 1)) *
@@ -613,58 +481,6 @@ def should_distort_images(flip_left_right, random_crop, random_scale,
 
 def add_input_distortions(flip_left_right, random_crop, random_scale,
                           random_brightness, module_spec):
-  """Creates the operations to apply the specified distortions.
-
-  During training it can help to improve the results if we run the images
-  through simple distortions like crops, scales, and flips. These reflect the
-  kind of variations we expect in the real world, and so can help train the
-  model to cope with natural data more effectively. Here we take the supplied
-  parameters and construct a network of operations to apply them to an image.
-
-  Cropping
-  ~~~~~~~~
-
-  Cropping is done by placing a bounding box at a random position in the full
-  image. The cropping parameter controls the size of that box relative to the
-  input image. If it's zero, then the box is the same size as the input and no
-  cropping is performed. If the value is 50%, then the crop box will be half the
-  width and height of the input. In a diagram it looks like this:
-
-  <       width         >
-  +---------------------+
-  |                     |
-  |   width - crop%     |
-  |    <      >         |
-  |    +------+         |
-  |    |      |         |
-  |    |      |         |
-  |    |      |         |
-  |    +------+         |
-  |                     |
-  |                     |
-  +---------------------+
-
-  Scaling
-  ~~~~~~~
-
-  Scaling is a lot like cropping, except that the bounding box is always
-  centered and its size varies randomly within the given range. For example if
-  the scale percentage is zero, then the bounding box is the same size as the
-  input and no scaling is applied. If it's 50%, then the bounding box will be in
-  a random range between half the width and height and full size.
-
-  Args:
-    flip_left_right: Boolean whether to randomly mirror images horizontally.
-    random_crop: Integer percentage setting the total margin used around the
-    crop box.
-    random_scale: Integer percentage of how much to vary the scale by.
-    random_brightness: Integer range to randomly multiply the pixel values by.
-    graph.
-    module_spec: The hub.ModuleSpec for the image module being used.
-
-  Returns:
-    The jpeg input layer and the distorted result tensor.
-  """
   input_height, input_width = hub.get_expected_image_size(module_spec)
   input_depth = hub.get_num_image_channels(module_spec)
   jpeg_data = tf.placeholder(tf.string, name='DistortJPGInput')
@@ -771,10 +587,6 @@ def add_final_retrain_ops(class_count, final_tensor_name, bottleneck_tensor,
 
   final_tensor = tf.nn.softmax(logits, name=final_tensor_name)
 
-  # The tf.contrib.quantize functions rewrite the graph in place for
-  # quantization. The imported model graph has already been rewritten, so upon
-  # calling these rewrites, only the newly added final layer will be
-  # transformed.
   if quantize_layer:
     if is_training:
       tf.contrib.quantize.create_training_graph()
@@ -783,7 +595,6 @@ def add_final_retrain_ops(class_count, final_tensor_name, bottleneck_tensor,
 
   tf.summary.histogram('activations', final_tensor)
 
-  # If this is an eval graph, we don't need to add loss ops or an optimizer.
   if not is_training:
     return None, None, bottleneck_input, ground_truth_input, final_tensor
 
@@ -966,15 +777,12 @@ def export_model(module_spec, class_count, saved_model_dir):
 
 
 def main(_):
-  # Needed to make sure the logging output is visible.
-  # See https://github.com/tensorflow/tensorflow/issues/3047
   tf.logging.set_verbosity(tf.logging.INFO)
 
   if not FLAGS.image_dir:
     tf.logging.error('Must set flag --image_dir.')
     return -1
 
-  # Prepare necessary directories that can be used during training
   prepare_file_system()
 
   # Look at the folder structure, and create lists of all the images.
